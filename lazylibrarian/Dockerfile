@@ -20,7 +20,12 @@ RUN apt-get update \
 
 COPY rootfs/ /
 RUN find /etc/cont-init.d /etc/services.d -type f \
-      \( -name "*.sh" -o -name "run" -o -name "finish" \) -exec chmod +x {} \;
+      \( -name "*.sh" -o -name "run" -o -name "finish" \) -exec chmod +x {} \; \
+ && chmod +x /ha-entrypoint.sh
+
+# Inject PUID/PGID/TZ from the add-on options before s6-overlay's /init runs,
+# so the LinuxServer init-adduser step actually honors them.
+ENTRYPOINT ["/ha-entrypoint.sh"]
 
 ARG BUILD_ARCH
 ARG BUILD_DATE
