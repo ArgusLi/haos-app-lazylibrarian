@@ -21,14 +21,38 @@ sed -i "s|%%ingress_entry%%|${ingress_entry}|g" /etc/nginx/servers/ingress.conf
 ##################
 
 CONFIG_LOCATION=/config/config.ini
+connection_mode="$(bashio::config "connection_mode")"
 
-# Only modify config.ini if it already exists (written by LazyLibrarian on first start)
-if [ -f "$CONFIG_LOCATION" ]; then
-    connection_mode="$(bashio::config "connection_mode")"
-    bashio::log.green "---------------------------"
-    bashio::log.green "connection_mode is $connection_mode"
-    bashio::log.green "---------------------------"
+bashio::log.green "---------------------------"
+bashio::log.green "connection_mode is $connection_mode"
+bashio::log.green "---------------------------"
 
+if [ ! -f "$CONFIG_LOCATION" ]; then
+    # First boot: config.ini doesn't exist yet. Pre-create it with the correct
+    # http_root so LazyLibrarian loads the right value into memory on first start
+    # and preserves it when saving config on shutdown.
+    bashio::log.info "config.ini not found — creating with ingress settings"
+    case "$connection_mode" in
+        ingress)
+            cat > "$CONFIG_LOCATION" <<EOF
+[General]
+http_root = /lazylibrarian
+http_host = 0.0.0.0
+http_port = 5299
+EOF
+            ;;
+        noingress)
+            cat > "$CONFIG_LOCATION" <<EOF
+[General]
+http_root =
+http_host = 0.0.0.0
+http_port = 5299
+EOF
+            ;;
+    esac
+    chown "${PUID}:${PGID}" "$CONFIG_LOCATION"
+else
+    # Subsequent boots: patch the existing config in case connection_mode changed
     case "$connection_mode" in
         ingress)
             bashio::log.green "Ingress enabled — setting http_root to /lazylibrarian"
