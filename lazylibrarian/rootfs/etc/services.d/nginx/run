@@ -1,0 +1,30 @@
+#!/usr/bin/with-contenv bashio
+# shellcheck shell=bash
+set -e
+
+slug=lazylibrarian
+port=5299
+CONFIG_LOCATION=/config/config.ini
+
+# Wait for LazyLibrarian to become available (it writes config.ini on first start)
+bashio::net.wait_for "$port" localhost 900
+
+# Enforce http_root if it drifted (e.g. user edited config manually between restarts)
+if [ -f "$CONFIG_LOCATION" ] && ! bashio::config.equals "connection_mode" "noingress"; then
+    if ! grep -q "^http_root = /lazylibrarian" "$CONFIG_LOCATION"; then
+        bashio::log.warning "http_root not set to /$slug — correcting and restarting"
+        sed -i 's|^http_root =.*|http_root = /lazylibrarian|' "$CONFIG_LOCATION"
+        bashio::addon.restart
+    fi
+fi
+
+echo ""
+if bashio::config.equals "connection_mode" "noingress"; then
+    bashio::log.info "Ingress disabled. Connect at http://homeassistant:$(bashio::addon.port 5299)"
+else
+    bashio::log.info "Ingress enabled. Open from the HA sidebar or http://homeassistant:$(bashio::addon.port 5299)/lazylibrarian"
+fi
+echo ""
+
+bashio::log.info "Starting nginx..."
+exec nginx

@@ -1,0 +1,29 @@
+name: LazyLibrarian
+slug: lazylibrarian
+description: Book, eBook, audiobook and magazine manager and downloader
+version: "0.0.1"
+url: https://github.com/ArgusLi/haos-app-lazylibrarian/tree/master/lazylibrarian
+arch:
+  - aarch64
+  - amd64
+init: false
+ingress: true
+ingress_entry: lazylibrarian
+panel_icon: mdi:book-open-page-variant
+ports:
+  5299/tcp: 5299
+ports_description:
+  5299/tcp: Web interface (direct access, optional — Ingress is the primary entry)
+map:
+  - addon_config:rw
+  - share:rw
+options:
+  PUID: 0
+  PGID: 0
+  TZ: ""
+  connection_mode: ingress
+schema:
+  PUID: int
+  PGID: int
+  TZ: str?
+  connection_mode: list(ingress|noingress)
