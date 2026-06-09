@@ -5,10 +5,6 @@ set -e
 #################
 # NGINX SETTING #
 #################
-declare ingress_interface
-declare ingress_port
-declare ingress_entry
-
 ingress_port=$(bashio::addon.ingress_port)
 ingress_interface=$(bashio::addon.ip_address)
 ingress_entry=$(bashio::addon.ingress_entry)
@@ -20,12 +16,33 @@ sed -i "s|%%ingress_entry%%|${ingress_entry}|g" /etc/nginx/servers/ingress.conf
 # CONFIG SETTING #
 ##################
 
+CONFIG_LOCATION=/config/config.ini
 connection_mode="$(bashio::config "connection_mode")"
 bashio::log.green "connection_mode is $connection_mode"
 
-if bashio::config.equals "connection_mode" "ingress"; then
-    bashio::log.green "Ingress enabled — http_root will be set via --http_root startup arg"
-    bashio::log.yellow "WARNING: Ensure port 5299 is not exposed externally to avoid a security risk!"
-else
-    bashio::log.green "Ingress disabled — direct port access only"
+if [ ! -f "$CONFIG_LOCATION" ]; then
+    # First boot: config.ini doesn't exist yet.
+    # /defaults/config.ini (which already has http_root = /lazylibrarian) will be
+    # copied by init-lazylibrarian-config before svc-lazylibrarian starts.
+    bashio::log.info "config.ini not found — will be created from defaults with http_root pre-set"
+    exit 0
 fi
+
+# Subsequent boots: patch config.ini if http_root needs updating.
+case "$connection_mode" in
+    ingress)
+        bashio::log.green "Ingress enabled — ensuring http_root = /lazylibrarian"
+        bashio::log.yellow "WARNING: Ensure port 5299 is not exposed externally to avoid a security risk!"
+        if grep -q "^http_root" "$CONFIG_LOCATION"; then
+            sed -i 's|^http_root =.*|http_root = /lazylibrarian|' "$CONFIG_LOCATION"
+        else
+            sed -i '/^\[General\]/a http_root = /lazylibrarian' "$CONFIG_LOCATION"
+        fi
+        ;;
+    noingress)
+        bashio::log.green "Ingress disabled — clearing http_root for direct access"
+        if grep -q "^http_root" "$CONFIG_LOCATION"; then
+            sed -i 's|^http_root =.*|http_root =|' "$CONFIG_LOCATION"
+        fi
+        ;;
+esac
