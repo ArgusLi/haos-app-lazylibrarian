@@ -1,6 +1,6 @@
-#!/command/execlineb -S0
-# Take down the S6 supervision tree when nginx exits unexpectedly
-if { /command/s6-test ${1} -ne 0 }
-if { /command/s6-test ${1} -ne 256 }
-
-/command/s6-svscanctl -t /var/run/s6/services
+#!/usr/bin/with-contenv bashio
+# shellcheck shell=bash
+# Called by s6 when nginx exits. Non-zero exit code means unexpected crash.
+if [ "${1}" -ne 0 ] && [ "${1}" -ne 256 ]; then
+    bashio::log.error "nginx exited unexpectedly with code ${1}"
+fi
